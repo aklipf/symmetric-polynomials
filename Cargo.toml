@@ -6,5 +6,10 @@ edition = "2024"
 [lib]
 crate-type = ["lib"]
 
+[[bin]]
+name = "invariant"
+path = "src/invariant.rs"
+
 [dependencies]
 itertools="*"
+clap = { version = "4.5.43", features = ["derive"] }
