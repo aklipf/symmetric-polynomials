@@ -6,6 +6,10 @@ edition = "2024"
 [lib]
 crate-type = ["lib"]
 
+[profile.release]
+opt-level = "z"
+lto = "fat"
+
 [[bin]]
 name = "invariant"
 path = "src/invariant.rs"
