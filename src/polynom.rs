@@ -13,13 +13,13 @@ pub enum Index {
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Variable {
-    name: String,
-    indices: Vec<Index>,
+    pub name: String,
+    pub indices: Vec<Index>,
 }
 
 #[derive(Debug, Clone, Hash)]
 pub struct Monoid {
-    variables: Vec<Variable>,
+    pub variables: Vec<Variable>,
 }
 
 impl PartialEq for Monoid {
