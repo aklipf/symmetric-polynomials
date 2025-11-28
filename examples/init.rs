@@ -17,7 +17,7 @@ fn invarient(degree: u32, num_variables: u32, domain_size: u32) -> Vec<HashSet<M
     let indices: Vec<Index> = (0..num_indices)
         .map(|idx| Index::Named(format!("i_{idx}")))
         .collect();
-    
+
     for x in (0..num_indices)
         .map(|_| indices.iter())
         .multi_cartesian_product()
@@ -30,13 +30,13 @@ fn invarient(degree: u32, num_variables: u32, domain_size: u32) -> Vec<HashSet<M
             })
             .collect();
 
-        if !monoid.is_multilinear(){
+        if !monoid.is_multilinear() {
             continue;
         }
 
         let orbital = monoid.orbital(domain_size);
 
-        if orbital.len()>0 && (!invarients.contains(&orbital)) {
+        if orbital.len() > 0 && (!invarients.contains(&orbital)) {
             invarients.push(orbital);
         }
     }
@@ -44,18 +44,21 @@ fn invarient(degree: u32, num_variables: u32, domain_size: u32) -> Vec<HashSet<M
 }
 
 fn main() {
-    let domain_size=6;
+    let domain_size = 6;
     let degree = 4;
     let invarients = invarient(degree, 2, domain_size);
-    let mut sum:usize=0;
-    for invarient in invarients.iter(){
-        println!("Invarients (len: {})",invarient.len());
-        sum+=invarient.len();
-        println!("{}",invarient.iter().join(" + "));
+    let mut sum: usize = 0;
+    for invarient in invarients.iter() {
+        println!("Invarients (len: {})", invarient.len());
+        sum += invarient.len();
+        println!("{}", invarient.iter().join(" + "));
     }
     println!("total size: {sum}");
-    println!("expected size: {}",choose((domain_size * domain_size) as u64, degree as u64));
-    println!("num invarient: {}",invarients.len());
+    println!(
+        "expected size: {}",
+        choose((domain_size * domain_size) as u64, degree as u64)
+    );
+    println!("num invarient: {}", invarients.len());
 
     /*
     let domain_size: u32 = 6;

@@ -116,9 +116,9 @@ impl Display for Monoid {
 }
 
 impl Monoid {
-    pub fn is_multilinear(&self)->bool{
-        for (i,var) in self.variables.iter().enumerate(){
-            if self.variables[i+1..].contains(var){
+    pub fn is_multilinear(&self) -> bool {
+        for (i, var) in self.variables.iter().enumerate() {
+            if self.variables[i + 1..].contains(var) {
                 return false;
             }
         }
