@@ -15,5 +15,6 @@ name = "invariant"
 path = "src/invariant.rs"
 
 [dependencies]
-itertools="*"
+itertools = "*"
 clap = { version = "4.5.43", features = ["derive"] }
+petgraph = "0.8.3"

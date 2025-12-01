@@ -1,4 +1,5 @@
 use clap::Parser;
+use petgraph::{algo::is_isomorphic, graph::DiGraph};
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
@@ -10,7 +11,11 @@ struct Args {
     degree: u32,
 }
 
-use std::{collections::HashSet, ffi::os_str::Display, fmt, u32};
+use std::{
+    cmp::{max, min},
+    collections::HashSet,
+    fmt, u32,
+};
 
 use itertools::Itertools;
 use symmetric_polynomials::polynom::{Index, Monoid, Variable};
@@ -55,27 +60,32 @@ fn invarient(degree: u32, num_variables: u32, domain_size: u32) -> Vec<HashSet<M
     invarients
 }
 
-/*
-function to check if two monoid are on the same orbital
-cannonical orderging of a monomial?
-
-
-# Cannonical ordering
-
-| diag elements (x_{ii}) | off diag elements (x_{ij}) |
-
-from 1 variable to 2d variables (if monomials of degree d)
-
-Degree d+1 can be built recusivly from degree d.
-
-*/
-
 #[derive(Debug, Clone, Default)]
-pub struct Monomial2d {
+pub struct Invariant2d {
     indices: Vec<(u32, u32)>,
 }
 
-impl fmt::Display for Monomial2d {
+impl From<Monoid> for Invariant2d {
+    fn from(value: Monoid) -> Self {
+        let mut indices: Vec<(u32, u32)> = Default::default();
+        for var in value.variables.iter() {
+            indices.push((
+                match var.indices[0] {
+                    Index::Named(_) => panic!(),
+                    Index::Constant(idx) => idx,
+                },
+                match var.indices[1] {
+                    Index::Named(_) => panic!(),
+                    Index::Constant(idx) => idx,
+                },
+            ));
+        }
+
+        indices.into_iter().collect()
+    }
+}
+
+impl fmt::Display for Invariant2d {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{{")?;
         for &(i, j) in self.indices.iter() {
@@ -85,63 +95,129 @@ impl fmt::Display for Monomial2d {
     }
 }
 
-impl FromIterator<(u32, u32)> for Monomial2d {
+impl FromIterator<(u32, u32)> for Invariant2d {
     fn from_iter<T: IntoIterator<Item = (u32, u32)>>(iter: T) -> Self {
-        Monomial2d {
-            indices: iter.into_iter().collect(),
-        }
-    }
-}
-
-impl Monomial2d {
-    pub fn cannonical(self) -> Self {
-        let mut cannon: Monomial2d = Monomial2d {
-            indices: Vec::with_capacity(self.indices.len()),
+        let mut cannon: Invariant2d = Invariant2d {
+            indices: Default::default(),
         };
 
         let mut num_indices: u32 = 0;
-        let mut mapping: Vec<u32> = vec![u32::MAX; self.indices.len() * 2];
+        let mut mapping: Vec<u32> = Default::default();
 
-        for &(i, j) in self.indices.iter() {
-            if i != j {
-                continue;
+        for (i, j) in iter.into_iter() {
+            let i = i as usize;
+            let j = j as usize;
+
+            while mapping.len() < i {
+                mapping.push(u32::MAX)
             }
-
-            if mapping[i as usize] == u32::MAX {
-                mapping[i as usize] = num_indices;
+            if mapping.len() == i {
+                mapping.push(num_indices);
                 num_indices += 1;
             }
 
-            let index = mapping[i as usize];
-            cannon.indices.push((index, index));
+            if mapping[i] == u32::MAX {
+                mapping[i] = num_indices;
+                num_indices += 1;
+            }
+
+            while mapping.len() < j {
+                mapping.push(u32::MAX)
+            }
+            if mapping.len() == j {
+                mapping.push(num_indices);
+                num_indices += 1;
+            }
+
+            if mapping[j] == u32::MAX {
+                mapping[j] = num_indices;
+                num_indices += 1;
+            }
+
+            cannon.indices.push((mapping[i], mapping[j]));
         }
-
-        let num_diag = cannon.indices.len();
-
-        for &(i, j) in self.indices.iter() {
-            if i == j {
-                continue;
-            }
-
-            if mapping[i as usize] == u32::MAX {
-                mapping[i as usize] = num_indices;
-                num_indices += 1;
-            }
-
-            if mapping[j as usize] == u32::MAX {
-                mapping[j as usize] = num_indices;
-                num_indices += 1;
-            }
-
-            cannon
-                .indices
-                .push((mapping[i as usize], mapping[j as usize]));
-        }
-
-        cannon.indices[..num_diag].sort_by_key(|&(i, j)| i * num_indices + j);
 
         cannon
     }
+}
+
+impl Invariant2d {
+    pub fn add(&mut self, i: u32, j: u32) {
+        let mut max_size = 0;
+        for &(i, j) in self.indices.iter() {
+            max_size = max(max_size, max(i, j));
+        }
+        max_size += 1;
+
+        let mut added: (u32, u32) = (if i < max_size { i } else { max_size }, j);
+        if i == max_size {
+            max_size += 1;
+        }
+        if j > max_size {
+            added.1 = max_size;
+        }
+        self.indices.push(added);
+    }
+}
+
+impl PartialEq for Invariant2d {
+    fn eq(&self, other: &Self) -> bool {
+        let self_graph = DiGraph::<u32, ()>::from_edges(&self.indices);
+        let other_graph = DiGraph::<u32, ()>::from_edges(&other.indices);
+
+        is_isomorphic(&self_graph, &other_graph)
+    }
+}
+
+impl Eq for Invariant2d {}
+
+fn invarient2d(degree: u32, domain_size: u32) -> Vec<Invariant2d> {
+    let mut invarients: Vec<Invariant2d> = Default::default();
+
+    if degree == 0 || domain_size == 0 {
+        return invarients;
+    }
+    if domain_size == 1 {
+        invarients.push(Invariant2d {
+            indices: vec![(0, 0)],
+        });
+        return invarients;
+    }
+    if degree == 1 {
+        invarients.push(Invariant2d {
+            indices: vec![(0, 0)],
+        });
+        invarients.push(Invariant2d {
+            indices: vec![(0, 1)],
+        });
+        return invarients;
+    }
+
+    let limit = min(domain_size, degree * 2);
+
+    for invariant in invarient2d(degree - 1, domain_size).into_iter() {
+        let mut max_size = 0;
+        for &(i, j) in invariant.indices.iter() {
+            max_size = max(max_size, max(i, j));
+        }
+        max_size = min(max_size + 3, limit);
+
+        for i in 0..max_size {
+            for j in 0..max_size {
+                if invariant.indices.contains(&(i, j)) {
+                    continue;
+                }
+                let mut current_invariant = invariant.clone();
+                current_invariant.add(i, j);
+
+                if !invarients.contains(&current_invariant) {
+                    invarients.push(current_invariant);
+                }
+            }
+        }
+    }
+
+    invarients
 }
 
 fn main() {
@@ -153,43 +229,11 @@ fn main() {
         cli.domain
     };
 
-    let invarients = invarient(cli.degree, 2, domain_size);
+    let invarients = invarient2d(cli.degree, domain_size);
 
     for invarient in invarients.iter() {
-        println!("invariant {}",invarient.iter().nth(0).unwrap().clone());
-        for monomial in invarient.iter().take(10) {
-            let mut indices: Vec<(u32, u32)> = Default::default();
-            for var in monomial.variables.iter() {
-                indices.push((
-                    match var.indices[0] {
-                        Index::Named(_) => panic!(),
-                        Index::Constant(idx) => idx,
-                    },
-                    match var.indices[1] {
-                        Index::Named(_) => panic!(),
-                        Index::Constant(idx) => idx,
-                    },
-                ));
-            }
-
-            let monomial: Monomial2d = indices.into_iter().collect();
-            let cannonical = monomial.clone().cannonical();
-            println!("{monomial} {cannonical}");
-        }
+        println!("invariant {invarient}");
     }
 
-    /*
-    let mut sum: usize = 0;
-    for invarient in invarients.iter() {
-        println!("Invarients (len: {})", invarient.len());
-        sum += invarient.len();
-        println!("{}", invarient.iter().join(" + "));
-    }
-    println!("total size: {sum}");
-    println!(
-        "expected size: {}",
-        choose((domain_size * domain_size) as u64, cli.degree as u64)
-    );
     println!("num invarient: {}", invarients.len());
-    */
 }
