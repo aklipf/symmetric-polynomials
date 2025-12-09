@@ -1,5 +1,5 @@
 use clap::Parser;
-use petgraph::{algo::is_isomorphic, graph::DiGraph};
+use petgraph::{algo::is_isomorphic, graph::{DiGraph, UnGraph}};
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
@@ -13,12 +13,12 @@ struct Args {
 
 use std::{
     cmp::{max, min},
-    collections::HashSet,
+    collections::{HashMap, HashSet},
     fmt, u32,
 };
 
 use itertools::Itertools;
-use symmetric_polynomials::polynom::{Index, Monoid, Variable};
+use symmetric_polynomials::{polynom::{Index, Monoid, Variable}, weisfeiler_leman::invariants};
 
 fn choose(n: u64, k: u64) -> u64 {
     if k == 0 {
@@ -169,6 +169,15 @@ impl PartialEq for Invariant2d {
     }
 }
 
+impl Invariant2d {
+    fn colours(&self) -> HashMap<u64,u64> {
+        let graph = DiGraph::<(), ()>::from_edges(&self.indices);
+
+        invariants(&graph)
+    }
+}
+
+
 impl Eq for Invariant2d {}
 
 fn invarient2d(degree: u32, domain_size: u32) -> Vec<Invariant2d> {
@@ -231,9 +240,22 @@ fn main() {
 
     let invarients = invarient2d(cli.degree, domain_size);
 
-    for invarient in invarients.iter() {
-        println!("invariant {invarient}");
+    let colours:Vec<HashMap<u64,u64>>=invarients.iter().map(|inv| inv.colours()).collect();
+
+    let mut num_indistinguishable = 0;
+    for (i,invarient) in invarients.iter().enumerate() {
+        if colours[..i].iter().all(|current| current!=&colours[i]){
+            num_indistinguishable+=1;
+            println!("indistinguishable {invarient}");
+
+            for (j,pair) in invarients.iter().enumerate() {
+                if i!=j && colours[i]==colours[j]{
+                    println!("- {pair}");
+                }
+            }
+        }
     }
 
     println!("num invarient: {}", invarients.len());
+    println!("num indistinguishable: {}", num_indistinguishable);
 }

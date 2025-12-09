@@ -17,4 +17,5 @@ path = "src/invariant.rs"
 [dependencies]
 itertools = "*"
 clap = { version = "4.5.43", features = ["derive"] }
-petgraph = "0.8.3"
+petgraph = "0.6.5"
+wl_isomorphism = "0.1.1"
