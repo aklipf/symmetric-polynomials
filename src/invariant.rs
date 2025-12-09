@@ -1,5 +1,5 @@
 use clap::Parser;
-use petgraph::{algo::is_isomorphic, graph::{DiGraph, UnGraph}};
+use petgraph::{algo::is_isomorphic, graph::DiGraph};
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
@@ -13,52 +13,14 @@ struct Args {
 
 use std::{
     cmp::{max, min},
-    collections::{HashMap, HashSet},
+    collections::HashMap,
     fmt, u32,
 };
 
-use itertools::Itertools;
-use symmetric_polynomials::{polynom::{Index, Monoid, Variable}, weisfeiler_leman::invariants};
-
-fn choose(n: u64, k: u64) -> u64 {
-    if k == 0 {
-        return 1;
-    }
-    (n * choose(n - 1, k - 1)) / k
-}
-
-fn invarient(degree: u32, num_variables: u32, domain_size: u32) -> Vec<HashSet<Monoid>> {
-    let mut invarients: Vec<HashSet<Monoid>> = Default::default();
-
-    let num_indices = degree * num_variables;
-    let indices: Vec<Index> = (0..num_indices)
-        .map(|idx| Index::Named(format!("i_{idx}")))
-        .collect();
-
-    for x in (0..num_indices)
-        .map(|_| indices.iter())
-        .multi_cartesian_product()
-    {
-        let monoid: Monoid = (0..degree)
-            .map(|i| {
-                let begin: usize = (i * num_variables) as usize;
-                let end: usize = ((i + 1) * num_variables) as usize;
-                Variable::new("x", x[begin..end].iter().cloned().cloned())
-            })
-            .collect();
-
-        if !monoid.is_multilinear() {
-            continue;
-        }
-
-        let orbital = monoid.orbital(domain_size);
-
-        if orbital.len() > 0 && (!invarients.contains(&orbital)) {
-            invarients.push(orbital);
-        }
-    }
-    invarients
-}
+use symmetric_polynomials::{
+    polynom::{Index, Monoid},
+    weisfeiler_leman::invariants,
+};
 
 #[derive(Debug, Clone, Default)]
 pub struct Invariant2d {
@@ -170,13 +132,12 @@ impl PartialEq for Invariant2d {
 }
 
 impl Invariant2d {
-    fn colours(&self) -> HashMap<u64,u64> {
+    fn colours(&self) -> HashMap<u64, u64> {
         let graph = DiGraph::<(), ()>::from_edges(&self.indices);
 
         invariants(&graph)
     }
 }
-
 
 impl Eq for Invariant2d {}
 
@@ -240,16 +201,16 @@ fn main() {
 
     let invarients = invarient2d(cli.degree, domain_size);
 
-    let colours:Vec<HashMap<u64,u64>>=invarients.iter().map(|inv| inv.colours()).collect();
+    let colours: Vec<HashMap<u64, u64>> = invarients.iter().map(|inv| inv.colours()).collect();
 
     let mut num_indistinguishable = 0;
-    for (i,invarient) in invarients.iter().enumerate() {
-        if colours[..i].iter().all(|current| current!=&colours[i]){
-            num_indistinguishable+=1;
+    for (i, invarient) in invarients.iter().enumerate() {
+        if colours[..i].iter().all(|current| current != &colours[i]) {
+            num_indistinguishable += 1;
             println!("indistinguishable {invarient}");
 
-            for (j,pair) in invarients.iter().enumerate() {
-                if i!=j && colours[i]==colours[j]{
+            for (j, pair) in invarients.iter().enumerate() {
+                if i != j && colours[i] == colours[j] {
                     println!("- {pair}");
                 }
             }
